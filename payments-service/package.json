@@ -11,11 +11,10 @@
     "start": "node src/server.ts"
   },
   "dependencies": {
-    "autotel": "latest",
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "autotel-message-contract": "latest",
+    "@types/node": "^24.0.0",
     "typescript": "^5.6.0"
   }
 }

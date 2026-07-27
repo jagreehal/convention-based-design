@@ -1,77 +1,93 @@
 # Contract-first design
 
-Two services once disagreed about one field. The producer renamed `amount` to
-`value`, the consumer kept reading `amount`, and every payment in the dashboard
-showed £0.00 until someone noticed in production. The fix wasn't sharing more
-code — it was making the contract a first-class artifact.
+At 09:17 on Monday, every payment in the dashboard read £0.00.
 
-## The idea
+The payments producer still held the right totals. It had renamed `amount` to
+`value` on Friday. The dashboard deployed from another repository and kept
+reading `amount`. Both builds were green. The customer view was wrong.
 
-Cross-service type safety doesn't require sharing **code**. It requires
-sharing **contracts** — and contracts have industry-standard formats: OpenAPI
-for request/response, JSON Schema for events, frontmatter conventions for
-docs. Generate them from the schemas that already validate at runtime, commit
-them at a well-known path, and:
+Contract drift caused the failure. Copying a TypeScript type into the dashboard
+would only create another stale copy. Publishing a shared package would exclude
+the Python consumer and couple releases. Moving everything into one repository
+would solve far more than this field mismatch required.
 
-- any language can consume them (TypeScript, Python, Go, Rust, JVM…),
-- repos version and deploy independently,
-- and company-wide tooling can aggregate every repo into one place —
-  automatically, because everyone follows the same convention.
+The smaller fix is a contract both sides can consume.
 
-**The convention:** every repo commits well-known folders at its root.
+## Commit the contract
 
-```
-any-repo/
-  contracts/            # generated from runtime schemas, drift-checked in CI
-    openapi.json        #   its API
-    events/*.json       #   its events
-  docs/                 # authored docs with agreed frontmatter
-    *.md                #   title, repo, owner, tags
-```
+The producer already uses Zod schemas to reject invalid requests and events.
+This example generates standard artifacts from those same schemas:
 
-That's the whole trick — the same one the web uses with `/.well-known/`. Once
-the location and format are agreed, aggregators don't need cooperation from
-individual repos, just a list of them.
+- OpenAPI describes request and response traffic.
+- JSON Schema describes events.
+- YAML frontmatter describes authored documentation.
 
-## The cast
+Each publishing repository commits those artifacts at predictable paths:
 
-Each top-level directory stands in for a separate company repo:
-
-| Directory | Stands in for | Role |
-|---|---|---|
-| `payments-service/` | a TypeScript service repo | **Producer.** Zod schemas are the source of truth; `contracts/` is generated from them, `docs/` carries agreed frontmatter. Instrumented with [autotel](https://www.npmjs.com/package/autotel) (spans + `track()` product events); the exact wire bytes of each event are pinned with [autotel-message-contract](https://www.npmjs.com/package/autotel-message-contract). |
-| `dashboard/` | a TypeScript frontend repo | **API consumer.** [orval](https://orval.dev) generates a fully typed client from `openapi.json`. Zero shared code. |
-| `reporter/` | a Python repo | **Event consumer.** ~50 lines validating events against the committed JSON Schemas — contract-first is language-neutral by construction. |
-| `catalog/` | a company-wide docs repo | **Aggregator.** [EventCatalog](https://www.eventcatalog.dev) with a ~70-line artifact-first generator that reads every conforming repo's committed `contracts/events/*.json` — never their source — and publishes one browsable catalog of events, services and domains. |
-
-Plus `docs-index.mjs` at the root: twenty lines that glob `*/docs/*.md` and
-build a company-wide docs index from the agreed frontmatter — the docs half
-of the convention, aggregated as easily as the schema half.
-
-## How the contract flows
-
-```
-payments-service (Zod, runtime validation)
-      │  npm run contracts        ──►  contracts/openapi.json
-      │                           ──►  contracts/events/*.json
-      │  npm run check            (CI: typecheck, artifact drift, retired-file
-      │                            detection, pinned event wire format)
-      │
-      ├──► dashboard      orval → typed fetch client → tsc --noEmit
-      ├──► reporter       python + jsonschema validates the event stream
-      ├──► catalog        reads contracts/events/*.json, documents events/services/domains
-      └──► docs-index     globs docs/ frontmatter across every repo
+```text
+any-producing-repo/
+  contracts/
+    openapi.json
+    events/*.json
+  docs/
+    *.md
 ```
 
-Every consumer — dashboard, reporter, catalog — touches only the committed
-artifacts, never the service's source. Event metadata (producers, consumers,
-version, summary) travels *inside* the artifact as an `x-eventcatalog`
-extension, so a Go or Python repo that commits conformant JSON shows up in
-the catalog identically. `defineEvent()` is 20 vendored lines using a
-`Symbol.for` registry key, so even the metadata annotation needs no
-dependency.
+The path is the convention. A consumer can fetch one file without importing the
+producer's source, matching its language, or joining its release cycle.
 
-## Run it
+## Four separate repositories, shown together
+
+Each top-level directory stands in for a separate company repository:
+
+| Directory | Role |
+|---|---|
+| `payments-service/` | TypeScript producer. Zod is the runtime source of truth; `contracts/` is generated and committed. |
+| `dashboard/` | TypeScript request/response consumer. Orval generates its fetch client from `openapi.json`. |
+| `reporter/` | Python event consumer. `jsonschema` validates each record against `contracts/events/*.json`. |
+| `catalog/` | Company aggregator. EventCatalog reads committed artifacts from every configured repository. |
+
+`docs-index.mjs` demonstrates the documentation half of the convention by
+indexing frontmatter from each `docs/` directory.
+
+The local paths keep the demonstration runnable in one checkout. With separate
+repositories, CI downloads the same files from a release, artifact store, URL,
+or pinned Git reference.
+
+## Follow one schema to every consumer
+
+```text
+payments-service
+  Zod request and event schemas
+       |
+       +-- npm run contracts --> contracts/openapi.json
+       |                              |
+       |                              +--> Orval --> dashboard client
+       |
+       +-- npm run contracts --> contracts/events/*.json
+                                      |
+                                      +--> Python reporter validation
+                                      |
+                                      +--> EventCatalog pages
+
+docs/*.md ----------------------------+--> company docs index
+```
+
+Every consumer crosses the artifact seam. None reads
+`payments-service/src/`.
+
+Event identity, version, ownership, producers, and consumers travel inside each
+JSON Schema through an `x-eventcatalog` extension. The catalog validates that
+metadata, rejects duplicate event IDs, and rebuilds its generated domain from
+scratch so retired events disappear.
+
+The event tests use the same NDJSON serializer as the running producer. Their
+approved files pin the compact bytes, field order, and record delimiter that
+the reporter receives.
+
+## Run the proof
+
+Requires macOS, Node 24, and Python 3 with `jsonschema`.
 
 ```sh
 (cd payments-service && npm install)
@@ -80,59 +96,52 @@ dependency.
 ./demo.sh
 ```
 
-`demo.sh` checks the committed contracts against the code (CI semantics),
-then *proves* the check works — it renames `amount` in the producer schema,
-watches the check fail, and reverts — then regenerates + typechecks the orval
-client, runs a live round-trip (typed client → server → event log → Python
-validation), builds the docs index, and rebuilds the catalog. Browse the
-catalog with `cd catalog && npm run dev`. After an intentional schema change,
-`npm run contracts` regenerates the artifacts for committing.
+The script performs the proof in this order:
 
-Requires Node 24 LTS (native TypeScript, no build step) and Python 3 with
-`jsonschema`. `.github/workflows/ci.yml` runs the whole demo — including the
-intentional drift failure — and then asserts a clean working tree.
+1. Typecheck the producer and compare its current schemas with the committed
+   artifacts.
+2. Rename `amount` to `value` temporarily and require the drift check to fail.
+3. Restore the source, regenerate the dashboard client, and typecheck it.
+4. Start the producer and send a request through the generated client.
+5. Validate the emitted NDJSON record in Python.
+6. Generate the documentation index and EventCatalog.
 
-## Where this scales
+The cleanup trap restores the producer source and stops the server even when
+the demonstration exits early. CI runs the same script on macOS with Node 24,
+then rejects modified, deleted, or untracked generated files.
 
-The pattern isn't limited to schemas. Anything with an agreed location and
-format aggregates the same way:
+After an intentional schema change, regenerate and commit the artifacts:
 
-- **Living documentation** — [executable-stories-astro](https://github.com/jagreehal/executable-stories)
-  turns test-run output into a hot-reloading Astro docs site and ingests
-  authored `docs/` folders alongside it; point its `sources` list at each
-  repo's report and scenario docs aggregate company-wide too.
-- **Astro content loaders** — a glob loader over cloned repos'
-  `docs/**/*.md` with the agreed frontmatter gives one documentation site
-  for the whole company, no per-repo build step.
-- **Anything else** — ADRs, SLOs, ownership metadata: same move. Well-known
-  path in, aggregator out.
+```sh
+cd payments-service
+npm run contracts
+npm run check
+```
 
-## Isn't this what monorepos are for?
+## What each check catches
 
-Often the reason teams reach for one. Worth comparing what you actually get:
+| Failure | Where it stops |
+|---|---|
+| Runtime schema changed, artifact unchanged | Producer artifact drift check |
+| Event retired, old schema file remains | Producer file-set check |
+| Event bytes or field order changed | NDJSON message contract |
+| Dashboard still calls the old shape | Generated client typecheck |
+| Producer emits an invalid event | Zod before append |
+| Python receives an invalid event | JSON Schema validation |
+| Two repositories claim the same event ID | Catalog generation |
+| Generated output was not committed | Final CI working-tree check |
 
-| You wanted | Monorepo gives you | Contract-first gives you |
-|---|---|---|
-| Type-safe calls between services | Shared TS types — TS-only | Generated clients in any language |
-| One source of truth | One repo, lockstep versioning | One artifact per repo, versioned with the code |
-| Discoverability | Grep, tribal knowledge | Aggregated catalog + docs index built from every repo |
-| Drift protection | The compiler (until Python shows up) | A CI check per repo + schema validation at runtime |
+## When a monorepo still wins
 
-A monorepo is still the right call when one team ships one product from
-tightly coupled packages — this isn't an argument against them. It's an
-argument that *contracts* were never the reason to need one.
+A monorepo remains useful when one team releases tightly coupled packages as
+one product. It offers atomic changes, shared tooling, and one dependency
+graph.
 
-That renamed field from the first paragraph? Here it fails in
-`payments-service` CI as "openapi.json is stale", and if it ships anyway the
-reporter prints `INVALID payment.completed` instead of £0.00. Caught twice
-before a human ever squints at a dashboard.
+This pattern addresses a narrower problem: independent producers and consumers
+need an explicit, versioned description of what crosses between them. OpenAPI
+and JSON Schema keep that description usable from TypeScript, Python, Go, Rust,
+or the JVM.
 
-## Notes
-
-- The catalog's `repos` list is where company-wide aggregation happens: CI
-  clones each conforming repo and appends it to the list. One entry per repo.
-- TypeScript repos that don't want to commit artifacts have a code-first
-  alternative: [eventcatalog-generator-zod](https://github.com/jagreehal/eventcatalog-generator-zod)
-  scans Zod schemas directly (its `defineEvent` convention is where this
-  repo's metadata annotation comes from). The artifact-first generator here
-  is the language-neutral proof.
+The Friday rename now gets two outcomes. An intentional change produces an
+artifact diff for review. An accidental change turns CI red before Monday
+morning, so the dashboard never gets the chance to print £0.00.

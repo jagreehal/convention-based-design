@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check": "node --test generators/*.test.mjs",
     "generate": "eventcatalog generate",
     "dev": "eventcatalog dev",
     "build": "eventcatalog build"

@@ -5,6 +5,34 @@ import { readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import utils from '@eventcatalog/sdk';
 
+const identifier = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+export function readMetadata(schema, location) {
+  const meta = schema?.['x-eventcatalog'];
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
+    throw new Error(`${location}: x-eventcatalog must be an object`);
+  }
+  for (const field of ['id', 'version']) {
+    if (typeof meta[field] !== 'string' || !identifier.test(meta[field])) {
+      throw new Error(`${location}: x-eventcatalog.${field} must be a non-empty identifier`);
+    }
+  }
+  for (const field of ['name', 'summary']) {
+    if (meta[field] !== undefined && typeof meta[field] !== 'string') {
+      throw new Error(`${location}: x-eventcatalog.${field} must be a string`);
+    }
+  }
+  for (const field of ['producers', 'consumers', 'owners']) {
+    if (
+      meta[field] !== undefined
+      && (!Array.isArray(meta[field]) || meta[field].some((value) => typeof value !== 'string' || !identifier.test(value)))
+    ) {
+      throw new Error(`${location}: x-eventcatalog.${field} must be an array of identifiers`);
+    }
+  }
+  return meta;
+}
+
 export default async (_, { repos, domain }) => {
   const projectDir = process.env.PROJECT_DIR || process.cwd();
   const { writeEvent, addSchemaToEvent, writeService, writeDomain } = utils(projectDir);
@@ -23,12 +51,10 @@ export default async (_, { repos, domain }) => {
   const seen = new Map(); // event id → repo that defined it
   for (const repo of repos) {
     const dir = join(projectDir, repo, 'contracts', 'events');
-    for (const file of readdirSync(dir)) {
+    for (const file of readdirSync(dir).filter((name) => name.endsWith('.json')).sort()) {
+      const location = `${repo}/contracts/events/${file}`;
       const schema = JSON.parse(readFileSync(join(dir, file), 'utf8'));
-      const meta = schema['x-eventcatalog'];
-      if (!meta?.id || !meta?.version) {
-        throw new Error(`${repo}/contracts/events/${file}: x-eventcatalog must declare id and version`);
-      }
+      const meta = readMetadata(schema, location);
       if (seen.has(meta.id)) {
         throw new Error(`event id "${meta.id}" defined by both ${seen.get(meta.id)} and ${repo}`);
       }

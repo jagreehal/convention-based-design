@@ -1,11 +1,1 @@
-{
-  "payment": {
-    "amount": 42,
-    "createdAt": "2026-01-01T00:00:00.000Z",
-    "currency": "GBP",
-    "id": "pay_fixed",
-    "status": "completed"
-  },
-  "settledAt": "2026-01-01T00:00:00.000Z",
-  "type": "payment.completed"
-}
+{"type":"payment.completed","payment":{"id":"pay_fixed","amount":42,"currency":"GBP","status":"completed","createdAt":"2026-01-01T00:00:00.000Z"},"settledAt":"2026-01-01T00:00:00.000Z"}

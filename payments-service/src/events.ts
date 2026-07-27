@@ -36,3 +36,15 @@ export const paymentFailedEventSchema = defineEvent(
 export type PaymentFailedEvent = z.infer<typeof paymentFailedEventSchema>;
 
 export const eventSchemaList = [paymentCompletedEventSchema, paymentFailedEventSchema];
+
+// This is the event stream's real wire adapter. Production and contract tests
+// use the same implementation, including the NDJSON record delimiter.
+export const eventNdjsonSerializer = {
+  name: 'ndjson',
+  serialize(value: unknown): string {
+    return `${JSON.stringify(value)}\n`;
+  },
+  deserialize(serialized: string): unknown {
+    return JSON.parse(serialized);
+  },
+};

@@ -3,3 +3,4 @@ dist/
 .eventcatalog-core/
 events.ndjson
 catalog/public/pagefind/
+.DS_Store
