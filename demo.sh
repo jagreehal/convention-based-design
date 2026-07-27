@@ -19,6 +19,9 @@ sleep 1
 python3 reporter/reporter.py --check
 python3 reporter/reporter.py
 
+echo "── docs: aggregate agreed frontmatter across repos"
+node docs-index.mjs
+
 echo "── catalog: aggregate every repo's contracts"
 (cd catalog && npm run --silent generate >/dev/null && echo "catalog generated — run 'npm run dev' in catalog/ to browse")
 
