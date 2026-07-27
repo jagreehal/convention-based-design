@@ -15,9 +15,10 @@ The smaller fix is a contract both sides can consume.
 
 ## Read the argument one proof at a time
 
-The [six-part contract-first series](posts/README.md) builds from the £0.00
-failure to typed frontend calls, cross-language events, broker independence,
-organization-wide discovery, and safe contract evolution.
+This repository is the runnable proof. The written argument is the
+[six-part series](posts/README.md), where each post ends on the question the
+next one answers. Start at
+[part 1: The £0.00 dashboard](posts/01-the-zero-pound-dashboard.md).
 
 ## Commit the contract
 
