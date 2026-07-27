@@ -1,0 +1,14 @@
+{
+  "name": "dashboard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "orval",
+    "check": "tsc --noEmit",
+    "start": "node src/main.ts"
+  },
+  "devDependencies": {
+    "orval": "^7.0.0",
+    "typescript": "^5.6.0"
+  }
+}

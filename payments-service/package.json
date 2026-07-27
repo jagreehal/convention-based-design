@@ -1,0 +1,16 @@
+{
+  "name": "payments-service",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "contracts": "node src/emit-contracts.ts",
+    "check": "node src/check.ts",
+    "start": "node src/server.ts"
+  },
+  "dependencies": {
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}
