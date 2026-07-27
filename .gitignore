@@ -2,3 +2,4 @@ node_modules/
 dist/
 .eventcatalog-core/
 events.ndjson
+catalog/public/pagefind/
