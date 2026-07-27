@@ -42,7 +42,7 @@ Each top-level directory stands in for a separate company repo:
 | `payments-service/` | a TypeScript service repo | **Producer.** Zod schemas are the source of truth; `contracts/` is generated from them, `docs/` carries agreed frontmatter. |
 | `dashboard/` | a TypeScript frontend repo | **API consumer.** [orval](https://orval.dev) generates a fully typed client from `openapi.json`. Zero shared code. |
 | `reporter/` | a Python repo | **Event consumer.** ~50 lines validating events against the committed JSON Schemas — contract-first is language-neutral by construction. |
-| `catalog/` | a company-wide docs repo | **Aggregator.** [EventCatalog](https://www.eventcatalog.dev) + [eventcatalog-generator-zod](https://github.com/jagreehal/eventcatalog-generator-zod) scan every conforming repo and publish one browsable catalog of events, services and domains. |
+| `catalog/` | a company-wide docs repo | **Aggregator.** [EventCatalog](https://www.eventcatalog.dev) with a ~70-line artifact-first generator that reads every conforming repo's committed `contracts/events/*.json` — never their source — and publishes one browsable catalog of events, services and domains. |
 
 Plus `docs-index.mjs` at the root: twenty lines that glob `*/docs/*.md` and
 build a company-wide docs index from the agreed frontmatter — the docs half
@@ -58,14 +58,17 @@ payments-service (Zod, runtime validation)
       │
       ├──► dashboard      orval → typed fetch client → tsc --noEmit
       ├──► reporter       python + jsonschema validates the event stream
-      ├──► catalog        scans the repo, documents events/services/domains
+      ├──► catalog        reads contracts/events/*.json, documents events/services/domains
       └──► docs-index     globs docs/ frontmatter across every repo
 ```
 
-The service never imports the catalog; the catalog scans the service. The
-dashboard never imports the service; it consumes its spec. `defineEvent()` is
-15 vendored lines using a `Symbol.for` registry key, so even the metadata
-handshake needs no dependency.
+Every consumer — dashboard, reporter, catalog — touches only the committed
+artifacts, never the service's source. Event metadata (producers, consumers,
+version, summary) travels *inside* the artifact as an `x-eventcatalog`
+extension, so a Go or Python repo that commits conformant JSON shows up in
+the catalog identically. `defineEvent()` is 20 vendored lines using a
+`Symbol.for` registry key, so even the metadata annotation needs no
+dependency.
 
 ## Run it
 
@@ -76,10 +79,13 @@ handshake needs no dependency.
 ./demo.sh
 ```
 
-`demo.sh` regenerates contracts, fails on drift, regenerates + typechecks the
-orval client, runs a live round-trip (typed client → server → event log →
-Python validation), builds the docs index, and rebuilds the catalog. Browse
-the catalog with `cd catalog && npm run dev`.
+`demo.sh` checks the committed contracts against the code (CI semantics),
+then *proves* the check works — it renames `amount` in the producer schema,
+watches the check fail, and reverts — then regenerates + typechecks the orval
+client, runs a live round-trip (typed client → server → event log → Python
+validation), builds the docs index, and rebuilds the catalog. Browse the
+catalog with `cd catalog && npm run dev`. After an intentional schema change,
+`npm run contracts` regenerates the artifacts for committing.
 
 Requires Node ≥ 22.6 (native TypeScript, no build step) and Python 3 with
 `jsonschema`.
@@ -121,6 +127,10 @@ before a human ever squints at a dashboard.
 
 ## Notes
 
-- `eventcatalog-generator-zod` is linked via `file:` until it's published to npm.
-- The catalog's `source` list is where company-wide aggregation happens: CI
+- The catalog's `repos` list is where company-wide aggregation happens: CI
   clones each conforming repo and appends it to the list. One entry per repo.
+- TypeScript repos that don't want to commit artifacts have a code-first
+  alternative: [eventcatalog-generator-zod](https://github.com/jagreehal/eventcatalog-generator-zod)
+  scans Zod schemas directly (its `defineEvent` convention is where this
+  repo's metadata annotation comes from). The artifact-first generator here
+  is the language-neutral proof.

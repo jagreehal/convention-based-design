@@ -15,10 +15,10 @@ export default {
   trailingSlash: false,
   generators: [
     [
-      'eventcatalog-generator-zod',
+      './generators/contracts.mjs',
       {
         // one entry per company repo; in real life these are cloned/fetched by CI
-        source: ['../payments-service'],
+        repos: ['../payments-service'],
         domain: { id: 'payments', name: 'Payments', version: '1.0.0' },
       },
     ],

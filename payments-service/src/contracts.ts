@@ -1,14 +1,17 @@
 import { z } from 'zod';
 import { createPaymentRequestSchema, paymentSchema, problemSchema } from './api.ts';
+import { getEventMetadata } from './define-event.ts';
 import { eventSchemaList } from './events.ts';
 
 const json = (schema: z.ZodType) => z.toJSONSchema(schema, { target: 'openapi-3.0' });
 
 export function buildContracts() {
+  // x-eventcatalog carries the defineEvent metadata into the artifact, so
+  // aggregators need only the JSON — never this repo's source code.
   const events = Object.fromEntries(
     eventSchemaList.map((schema) => [
       schema.shape.type.value,
-      z.toJSONSchema(schema),
+      { ...z.toJSONSchema(schema), 'x-eventcatalog': getEventMetadata(schema) },
     ])
   );
 

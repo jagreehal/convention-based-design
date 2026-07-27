@@ -18,3 +18,7 @@ export function defineEvent<T extends z.ZodType>(meta: EventMetadata, schema: T)
   (schema as Record<symbol, unknown>)[EVENT_META] = meta;
   return schema;
 }
+
+export function getEventMetadata(schema: unknown): EventMetadata | undefined {
+  return (schema as Record<symbol, EventMetadata | undefined>)[EVENT_META];
+}

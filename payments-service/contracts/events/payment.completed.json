@@ -58,5 +58,16 @@
     "payment",
     "settledAt"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "x-eventcatalog": {
+    "id": "payment.completed",
+    "version": "1.0.0",
+    "summary": "Emitted when a payment settles successfully.",
+    "producers": [
+      "payments-service"
+    ],
+    "consumers": [
+      "reporter"
+    ]
+  }
 }

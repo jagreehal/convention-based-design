@@ -9,6 +9,6 @@
   },
   "dependencies": {
     "@eventcatalog/core": "^2.0.0",
-    "eventcatalog-generator-zod": "file:../../../js/eventcatalog-generator-zod"
+    "@eventcatalog/sdk": "^2.0.0"
   }
 }

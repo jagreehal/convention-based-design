@@ -3,8 +3,18 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-echo "── payments-service: emit contracts + drift check"
-(cd payments-service && npm run --silent contracts && npm run --silent check)
+echo "── payments-service: drift check against COMMITTED contracts (CI semantics)"
+(cd payments-service && npm run --silent check)
+
+echo "── drift demo: rename 'amount' in the producer schema, watch the check fail"
+sed -i '' 's/amount/value/g' payments-service/src/api.ts
+if (cd payments-service && npm run --silent check >/dev/null 2>&1); then
+  sed -i '' 's/value/amount/g' payments-service/src/api.ts
+  echo "✗ drift NOT caught — check is broken"; exit 1
+fi
+echo "caught: contracts stale after schema change (CI would fail here)"
+sed -i '' 's/value/amount/g' payments-service/src/api.ts
+(cd payments-service && npm run --silent check >/dev/null)
 
 echo "── dashboard: regenerate typed client from openapi.json + typecheck"
 (cd dashboard && npm run --silent generate >/dev/null && npm run --silent check)

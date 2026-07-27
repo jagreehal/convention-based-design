@@ -24,5 +24,17 @@
     "reason",
     "failedAt"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "x-eventcatalog": {
+    "id": "payment.failed",
+    "version": "1.0.0",
+    "summary": "Emitted when a payment is declined or errors.",
+    "producers": [
+      "payments-service"
+    ],
+    "consumers": [
+      "reporter",
+      "dashboard"
+    ]
+  }
 }
