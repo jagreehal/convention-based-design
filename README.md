@@ -42,6 +42,28 @@ any-producing-repo/
 The path is the convention. A consumer can fetch one file without importing the
 producer's source, matching its language, or joining its release cycle.
 
+## What the convention buys
+
+- **A new consumer starts from one file.** The Python reporter joined the
+  system by reading `payment.completed.json` and writing fifty lines of
+  validation. No TypeScript toolchain, no source access, no meeting with the
+  payments team.
+- **Releases stay independent.** The producer ships on Friday, the dashboard
+  on Tuesday. The artifact diff in the pull request is the coordination, and
+  it is reviewable by both teams.
+- **The broker can change without a payload migration.** Swapping the NDJSON
+  file for Kafka, NATS, or SQS replaces a transport adapter. Every consumer
+  keeps validating the same bytes against the same schema.
+- **Drift turns into a red build instead of a production incident.** Rename a
+  field and the producer's own CI names the stale artifact before a reviewer
+  reads the diff, let alone before a customer reads £0.00.
+- **Discovery is automatic.** The catalog and the docs index are generated
+  from the well-known paths. Documenting a new service costs following the
+  convention, not writing catalog pages.
+- **Every repository answers the same questions in the same place.** What API
+  it serves, what events it emits, who owns it, how to operate it. The tenth
+  repository is as easy to learn as the first.
+
 ## Four separate repositories, shown together
 
 Each top-level directory stands in for a separate company repository:
@@ -147,8 +169,6 @@ payload contract.
 
 ## Run the proof
 
-Requires macOS, Node 24, and Python 3 with `jsonschema`.
-
 ```sh
 (cd payments-service && npm install)
 (cd dashboard && npm install)
@@ -156,7 +176,8 @@ Requires macOS, Node 24, and Python 3 with `jsonschema`.
 ./demo.sh
 ```
 
-The script performs the proof in this order:
+The script uses Node 24 and Python 3 with the `jsonschema` package, and
+performs the proof in this order:
 
 1. Typecheck the producer and compare its current schemas with the committed
    artifacts.
@@ -171,8 +192,8 @@ Kafka, NATS, or SQS changes delivery configuration, not the event schema or
 the reporter's payload validation.
 
 The cleanup trap restores the producer source and stops the server even when
-the demonstration exits early. CI runs the same script on macOS with Node 24,
-then rejects modified, deleted, or untracked generated files.
+the demonstration exits early. CI runs the same script, then rejects modified,
+deleted, or untracked generated files.
 
 After an intentional schema change, regenerate and commit the artifacts:
 
