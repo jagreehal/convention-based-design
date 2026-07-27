@@ -15,6 +15,9 @@ export function buildContracts() {
     ])
   );
 
+  // ponytail: paths/status codes are duplicated by hand in server.ts; adopt
+  // spec-driven routing (fastify + zod-openapi, orpc) or contract tests
+  // against the running server when the API outgrows two routes
   const openapi = {
     openapi: '3.0.3',
     info: { title: 'Payments Service API', version: '1.0.0' },

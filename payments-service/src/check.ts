@@ -1,7 +1,7 @@
 // Fails when code drifts from the committed contracts/ artifacts, or when
 // the schemas stop enforcing the boundary. Run in CI before publish.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createPaymentRequestSchema } from './api.ts';
 import { paymentCompletedEventSchema } from './events.ts';
@@ -13,6 +13,11 @@ const read = (p: string) => JSON.parse(readFileSync(`${contractsDir}/${p}`, 'utf
 const { openapi, events } = buildContracts();
 
 assert.deepEqual(read('openapi.json'), openapi, 'openapi.json is stale — run `npm run contracts` and commit');
+assert.deepEqual(
+  readdirSync(`${contractsDir}/events`).sort(),
+  Object.keys(events).map((type) => `${type}.json`).sort(),
+  'contracts/events/ file set differs from code — run `npm run contracts` and commit'
+);
 for (const [type, schema] of Object.entries(events)) {
   assert.deepEqual(read(`events/${type}.json`), schema, `events/${type}.json is stale — run \`npm run contracts\` and commit`);
 }

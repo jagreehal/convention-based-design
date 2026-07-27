@@ -39,7 +39,7 @@ Each top-level directory stands in for a separate company repo:
 
 | Directory | Stands in for | Role |
 |---|---|---|
-| `payments-service/` | a TypeScript service repo | **Producer.** Zod schemas are the source of truth; `contracts/` is generated from them, `docs/` carries agreed frontmatter. |
+| `payments-service/` | a TypeScript service repo | **Producer.** Zod schemas are the source of truth; `contracts/` is generated from them, `docs/` carries agreed frontmatter. Instrumented with [autotel](https://www.npmjs.com/package/autotel) (spans + `track()` product events); the exact wire bytes of each event are pinned with [autotel-message-contract](https://www.npmjs.com/package/autotel-message-contract). |
 | `dashboard/` | a TypeScript frontend repo | **API consumer.** [orval](https://orval.dev) generates a fully typed client from `openapi.json`. Zero shared code. |
 | `reporter/` | a Python repo | **Event consumer.** ~50 lines validating events against the committed JSON Schemas — contract-first is language-neutral by construction. |
 | `catalog/` | a company-wide docs repo | **Aggregator.** [EventCatalog](https://www.eventcatalog.dev) with a ~70-line artifact-first generator that reads every conforming repo's committed `contracts/events/*.json` — never their source — and publishes one browsable catalog of events, services and domains. |
@@ -54,7 +54,8 @@ of the convention, aggregated as easily as the schema half.
 payments-service (Zod, runtime validation)
       │  npm run contracts        ──►  contracts/openapi.json
       │                           ──►  contracts/events/*.json
-      │  npm run check            (CI: fails if code drifts from artifacts)
+      │  npm run check            (CI: typecheck, artifact drift, retired-file
+      │                            detection, pinned event wire format)
       │
       ├──► dashboard      orval → typed fetch client → tsc --noEmit
       ├──► reporter       python + jsonschema validates the event stream
@@ -87,8 +88,9 @@ validation), builds the docs index, and rebuilds the catalog. Browse the
 catalog with `cd catalog && npm run dev`. After an intentional schema change,
 `npm run contracts` regenerates the artifacts for committing.
 
-Requires Node ≥ 22.6 (native TypeScript, no build step) and Python 3 with
-`jsonschema`.
+Requires Node 24 LTS (native TypeScript, no build step) and Python 3 with
+`jsonschema`. `.github/workflows/ci.yml` runs the whole demo — including the
+intentional drift failure — and then asserts a clean working tree.
 
 ## Where this scales
 

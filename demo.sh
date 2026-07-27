@@ -3,17 +3,24 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+API=payments-service/src/api.ts
+cleanup() {
+  [ -f "$API.orig" ] && mv -f "$API.orig" "$API"
+  [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null || true
+}
+trap cleanup EXIT
+
 echo "── payments-service: drift check against COMMITTED contracts (CI semantics)"
 (cd payments-service && npm run --silent check)
 
 echo "── drift demo: rename 'amount' in the producer schema, watch the check fail"
-sed -i '' 's/amount/value/g' payments-service/src/api.ts
+cp "$API" "$API.orig"
+python3 -c "import pathlib, sys; p = pathlib.Path(sys.argv[1]); p.write_text(p.read_text().replace('amount', 'value'))" "$API"
 if (cd payments-service && npm run --silent check >/dev/null 2>&1); then
-  sed -i '' 's/value/amount/g' payments-service/src/api.ts
   echo "✗ drift NOT caught — check is broken"; exit 1
 fi
+mv -f "$API.orig" "$API"
 echo "caught: contracts stale after schema change (CI would fail here)"
-sed -i '' 's/value/amount/g' payments-service/src/api.ts
 (cd payments-service && npm run --silent check >/dev/null)
 
 echo "── dashboard: regenerate typed client from openapi.json + typecheck"
@@ -23,7 +30,6 @@ echo "── live round-trip: server ← typed client, events → python"
 rm -f payments-service/events.ndjson
 (cd payments-service && exec node src/server.ts) &
 SERVER_PID=$!
-trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
 sleep 1
 (cd dashboard && npm run --silent start)
 python3 reporter/reporter.py --check

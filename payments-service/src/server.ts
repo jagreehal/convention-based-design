@@ -2,8 +2,11 @@ import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { init, span, track } from 'autotel';
 import { createPaymentRequestSchema, type Payment } from './api.ts';
 import { paymentCompletedEventSchema } from './events.ts';
+
+init({ service: 'payments-service' });
 
 const eventLog = process.env.EVENT_LOG ?? fileURLToPath(new URL('../events.ndjson', import.meta.url));
 const payments = new Map<string, Payment>();
@@ -21,33 +24,38 @@ const server = createServer(async (req, res) => {
   };
 
   if (req.method === 'POST' && req.url === '/payments') {
-    let raw = '';
-    for await (const chunk of req) raw += chunk;
-    let body: unknown;
-    try {
-      body = JSON.parse(raw);
-    } catch {
-      return reply(400, { error: 'invalid JSON' });
-    }
-    const parsed = createPaymentRequestSchema.safeParse(body);
-    if (!parsed.success) return reply(400, { error: parsed.error.message });
+    return span('payments.create', async () => {
+      let raw = '';
+      for await (const chunk of req) raw += chunk;
+      let body: unknown;
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        return reply(400, { error: 'invalid JSON' });
+      }
+      const parsed = createPaymentRequestSchema.safeParse(body);
+      if (!parsed.success) return reply(400, { error: parsed.error.message });
 
-    // ponytail: settles synchronously; make status 'processing' + async settle when a real PSP arrives
-    const payment: Payment = {
-      id: randomUUID(),
-      ...parsed.data,
-      status: 'completed',
-      createdAt: new Date().toISOString(),
-    };
-    payments.set(payment.id, payment);
-    emit({ type: 'payment.completed', payment, settledAt: payment.createdAt });
-    return reply(201, payment);
+      // ponytail: settles synchronously; make status 'processing' + async settle when a real PSP arrives
+      const payment: Payment = {
+        id: randomUUID(),
+        ...parsed.data,
+        status: 'completed',
+        createdAt: new Date().toISOString(),
+      };
+      payments.set(payment.id, payment);
+      emit({ type: 'payment.completed', payment, settledAt: payment.createdAt });
+      track('payment.completed', { amount: payment.amount, currency: payment.currency });
+      return reply(201, payment);
+    });
   }
 
   const match = req.method === 'GET' && req.url?.match(/^\/payments\/([^/]+)$/);
   if (match) {
-    const payment = payments.get(match[1]);
-    return payment ? reply(200, payment) : reply(404, { error: 'payment not found' });
+    return span('payments.get', async () => {
+      const payment = payments.get(match[1]);
+      return payment ? reply(200, payment) : reply(404, { error: 'payment not found' });
+    });
   }
 
   reply(404, { error: 'not found' });

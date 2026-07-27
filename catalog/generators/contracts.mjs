@@ -1,13 +1,17 @@
 // Artifact-first EventCatalog generator: reads each repo's committed
 // contracts/events/*.json — never its source code. Any language that commits
 // conformant artifacts (with x-eventcatalog metadata) shows up in the catalog.
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import utils from '@eventcatalog/sdk';
 
 export default async (_, { repos, domain }) => {
   const projectDir = process.env.PROJECT_DIR || process.cwd();
   const { writeEvent, addSchemaToEvent, writeService, writeDomain } = utils(projectDir);
+
+  // full replacement: everything under this domain is generated, so retired
+  // contracts disappear instead of surviving as stale pages
+  rmSync(join(projectDir, 'domains', domain.id), { recursive: true, force: true });
 
   const servicePath = (id) => join('../', 'domains', domain.id, 'services', id);
   const services = new Map();
@@ -16,13 +20,20 @@ export default async (_, { repos, domain }) => {
     return services.get(id);
   };
 
+  const seen = new Map(); // event id → repo that defined it
   for (const repo of repos) {
     const dir = join(projectDir, repo, 'contracts', 'events');
     for (const file of readdirSync(dir)) {
       const schema = JSON.parse(readFileSync(join(dir, file), 'utf8'));
-      const meta = schema['x-eventcatalog'] ?? {};
-      const id = meta.id ?? file.replace(/\.json$/, '');
-      const version = meta.version ?? '1.0.0';
+      const meta = schema['x-eventcatalog'];
+      if (!meta?.id || !meta?.version) {
+        throw new Error(`${repo}/contracts/events/${file}: x-eventcatalog must declare id and version`);
+      }
+      if (seen.has(meta.id)) {
+        throw new Error(`event id "${meta.id}" defined by both ${seen.get(meta.id)} and ${repo}`);
+      }
+      seen.set(meta.id, repo);
+      const { id, version } = meta;
       const producer = (meta.producers ?? [])[0];
 
       await writeEvent(
