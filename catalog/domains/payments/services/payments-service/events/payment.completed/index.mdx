@@ -7,4 +7,12 @@ schemaPath: schema.json
 ---
 Generated from `../payments-service/contracts/events/payment.completed.json`.
 
+## Payload contract
+
+This JSON Schema validates the event payload after a transport adapter removes any broker envelope. The same payload can travel through Kafka, NATS, SQS/SNS, RabbitMQ, EventBridge, Redis Streams, or the local NDJSON adapter.
+
 <SchemaViewer file="schema.json" title="Schema" maxHeight="500" />
+
+## Transport contract
+
+Topics, subjects, queues, routing keys, message attributes, retries, and acknowledgement policies belong to the transport contract. AsyncAPI can publish those channel and protocol details alongside this payload schema.

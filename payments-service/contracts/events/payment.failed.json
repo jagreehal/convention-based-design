@@ -33,8 +33,7 @@
       "payments-service"
     ],
     "consumers": [
-      "reporter",
-      "dashboard"
+      "reporter"
     ]
   }
 }

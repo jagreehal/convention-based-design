@@ -2,12 +2,17 @@
 id: payments
 name: Payments
 version: 1.0.0
+summary: >-
+  HTTP and event contracts shared across repositories, languages, and
+  transports.
 services:
   - id: payments-service
     version: latest
   - id: reporter
     version: latest
-  - id: dashboard
-    version: latest
 ---
+The dashboard generates a typed frontend client from the payments OpenAPI artifact.
 
+Event consumers validate the committed JSON Schema payloads after their transport adapter removes any Kafka, NATS, SQS, RabbitMQ, EventBridge, or NDJSON envelope.
+
+Payload schemas stay stable when delivery infrastructure changes. Topics, subjects, queues, routing, retries, and acknowledgements belong to the transport contract.

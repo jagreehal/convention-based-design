@@ -24,7 +24,7 @@ export const paymentFailedEventSchema = defineEvent(
     version: '1.0.0',
     summary: 'Emitted when a payment is declined or errors.',
     producers: ['payments-service'],
-    consumers: ['reporter', 'dashboard'],
+    consumers: ['reporter'],
   },
   z.object({
     type: z.literal('payment.failed'),

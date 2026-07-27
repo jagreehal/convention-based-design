@@ -68,7 +68,14 @@ export default async (_, { repos, domain }) => {
           name: meta.name ?? id,
           version,
           summary: meta.summary ?? '',
-          markdown: `Generated from \`${repo}/contracts/events/${file}\`.\n\n<SchemaViewer file="schema.json" title="Schema" maxHeight="500" />`,
+          markdown: [
+            `Generated from \`${repo}/contracts/events/${file}\`.`,
+            '## Payload contract',
+            'This JSON Schema validates the event payload after a transport adapter removes any broker envelope. The same payload can travel through Kafka, NATS, SQS/SNS, RabbitMQ, EventBridge, Redis Streams, or the local NDJSON adapter.',
+            '<SchemaViewer file="schema.json" title="Schema" maxHeight="500" />',
+            '## Transport contract',
+            'Topics, subjects, queues, routing keys, message attributes, retries, and acknowledgement policies belong to the transport contract. AsyncAPI can publish those channel and protocol details alongside this payload schema.',
+          ].join('\n\n'),
           schemaPath: 'schema.json',
         },
         { path: producer ? join(servicePath(producer), 'events', id) : id, override: true }
@@ -82,13 +89,21 @@ export default async (_, { repos, domain }) => {
   }
 
   for (const [id, { sends, receives }] of services) {
+    const role = [
+      sends.length > 0 ? `Publishes ${sends.length} contracted event${sends.length === 1 ? '' : 's'}.` : '',
+      receives.length > 0 ? `Consumes ${receives.length} contracted event${receives.length === 1 ? '' : 's'}.` : '',
+    ].filter(Boolean).join(' ');
+    const explanation = [
+      sends.length > 0 ? 'Its runtime schemas generate committed payload artifacts before a transport adapter delivers each event.' : '',
+      receives.length > 0 ? 'It reads committed payload artifacts and validates each event after a transport adapter removes the broker envelope.' : '',
+    ].filter(Boolean).join(' ');
     await writeService(
       {
         id,
         name: id,
         version: '1.0.0',
-        summary: '',
-        markdown: '',
+        summary: role,
+        markdown: `${role} ${explanation}`,
         ...(sends.length > 0 && { sends }),
         ...(receives.length > 0 && { receives }),
       },
@@ -101,7 +116,8 @@ export default async (_, { repos, domain }) => {
       id: domain.id,
       name: domain.name,
       version: domain.version,
-      markdown: '',
+      summary: domain.summary ?? '',
+      markdown: domain.markdown ?? '',
       services: [...services.keys()].map((id) => ({ id, version: 'latest' })),
     },
     { override: true }

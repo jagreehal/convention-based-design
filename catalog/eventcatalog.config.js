@@ -1,7 +1,7 @@
 /**
  * Company-wide contract catalog. Every repo that follows the convention
- * (Zod events in code, contracts/ artifacts at the root) gets aggregated
- * here — add a repo to `source` and it appears in the catalog.
+ * (language-neutral contracts/ artifacts at the root) gets aggregated
+ * here. Add a repo to `repos` and it appears in the catalog.
  */
 export default {
   cId: 'ymnn-a-monorepo-demo',
@@ -19,7 +19,17 @@ export default {
       {
         // one entry per company repo; in real life these are cloned/fetched by CI
         repos: ['../payments-service'],
-        domain: { id: 'payments', name: 'Payments', version: '1.0.0' },
+        domain: {
+          id: 'payments',
+          name: 'Payments',
+          version: '1.0.0',
+          summary: 'HTTP and event contracts shared across repositories, languages, and transports.',
+          markdown: [
+            'The dashboard generates a typed frontend client from the payments OpenAPI artifact.',
+            'Event consumers validate the committed JSON Schema payloads after their transport adapter removes any Kafka, NATS, SQS, RabbitMQ, EventBridge, or NDJSON envelope.',
+            'Payload schemas stay stable when delivery infrastructure changes. Topics, subjects, queues, routing, retries, and acknowledgements belong to the transport contract.',
+          ].join('\n\n'),
+        },
       },
     ],
   ],

@@ -13,6 +13,12 @@ would solve far more than this field mismatch required.
 
 The smaller fix is a contract both sides can consume.
 
+## Read the argument one proof at a time
+
+The [six-part contract-first series](posts/README.md) builds from the £0.00
+failure to typed frontend calls, cross-language events, broker independence,
+organization-wide discovery, and safe contract evolution.
+
 ## Commit the contract
 
 The producer already uses Zod schemas to reject invalid requests and events.
@@ -43,7 +49,7 @@ Each top-level directory stands in for a separate company repository:
 | Directory | Role |
 |---|---|
 | `payments-service/` | TypeScript producer. Zod is the runtime source of truth; `contracts/` is generated and committed. |
-| `dashboard/` | TypeScript request/response consumer. Orval generates its fetch client from `openapi.json`. |
+| `dashboard/` | TypeScript frontend. Orval generates its typed microservice client from `openapi.json`. |
 | `reporter/` | Python event consumer. `jsonschema` validates each record against `contracts/events/*.json`. |
 | `catalog/` | Company aggregator. EventCatalog reads committed artifacts from every configured repository. |
 
@@ -66,7 +72,9 @@ payments-service
        |
        +-- npm run contracts --> contracts/events/*.json
                                       |
-                                      +--> Python reporter validation
+                                      +--> NDJSON, Kafka, NATS, SQS, ...
+                                                   |
+                                                   +--> Python reporter validation
                                       |
                                       +--> EventCatalog pages
 
@@ -76,7 +84,7 @@ docs/*.md ----------------------------+--> company docs index
 Every consumer crosses the artifact seam. None reads
 `payments-service/src/`.
 
-Event identity, version, ownership, producers, and consumers travel inside each
+Event identity, version, summary, producers, and consumers travel inside each
 JSON Schema through an `x-eventcatalog` extension. The catalog validates that
 metadata, rejects duplicate event IDs, and rebuilds its generated domain from
 scratch so retired events disappear.
@@ -84,6 +92,58 @@ scratch so retired events disappear.
 The event tests use the same NDJSON serializer as the running producer. Their
 approved files pin the compact bytes, field order, and record delimiter that
 the reporter receives.
+
+## Frontend to microservice type safety
+
+The dashboard stands in for a browser frontend deployed separately from the
+payments microservice. It does not import the producer's TypeScript types.
+Orval reads the committed OpenAPI artifact and generates:
+
+- typed request bodies and path parameters;
+- typed success and error responses;
+- a fetch client with the correct routes and HTTP methods.
+
+The frontend typecheck fails when its calls no longer match the generated
+client. The microservice still validates requests at runtime because browser
+traffic, old deployments, and third-party callers do not pass through the
+frontend compiler.
+
+OpenAPI covers HTTP request and response traffic. The same artifact-first
+pattern can describe WebSocket or server-sent event payloads with JSON Schema,
+with AsyncAPI added when channel and protocol details also need a contract.
+
+## One payload contract, any message transport
+
+JSON Schema describes the event payload. Kafka, NATS, SQS/SNS, RabbitMQ,
+EventBridge, Redis Streams, and the NDJSON file in this demo can all carry
+those bytes.
+
+```text
+payment.completed JSON Schema
+            |
+            +--> Kafka topic
+            +--> NATS subject
+            +--> SQS queue or SNS topic
+            +--> RabbitMQ exchange
+            +--> EventBridge bus
+            +--> NDJSON file used by ./demo.sh
+```
+
+The transport contract remains separate:
+
+| Transport | Details outside the payload schema |
+|---|---|
+| Kafka | Topic, message key, partitioning, retention, delivery guarantees |
+| NATS or JetStream | Subject, stream, consumer, acknowledgement policy |
+| SQS/SNS | Queue or topic ARN, message attributes, redrive policy, envelope |
+| RabbitMQ | Exchange, routing key, queue binding, acknowledgement policy |
+| EventBridge | Bus, source, detail type, retry and archive policy |
+
+A transport adapter unwraps broker-specific envelopes and validates the
+resulting payload against the committed JSON Schema. AsyncAPI can describe
+channels, bindings, and broker operations when teams need those transport
+details in the catalog too. Changing brokers does not require a new payment
+payload contract.
 
 ## Run the proof
 
@@ -106,6 +166,10 @@ The script performs the proof in this order:
 5. Validate the emitted NDJSON record in Python.
 6. Generate the documentation index and EventCatalog.
 
+NDJSON keeps the proof local and brokerless. Replacing that adapter with
+Kafka, NATS, or SQS changes delivery configuration, not the event schema or
+the reporter's payload validation.
+
 The cleanup trap restores the producer source and stops the server even when
 the demonstration exits early. CI runs the same script on macOS with Node 24,
 then rejects modified, deleted, or untracked generated files.
@@ -126,6 +190,7 @@ npm run check
 | Event retired, old schema file remains | Producer file-set check |
 | Event bytes or field order changed | NDJSON message contract |
 | Dashboard still calls the old shape | Generated client typecheck |
+| Frontend sends an invalid request at runtime | Microservice Zod validation |
 | Producer emits an invalid event | Zod before append |
 | Python receives an invalid event | JSON Schema validation |
 | Two repositories claim the same event ID | Catalog generation |
@@ -144,4 +209,6 @@ or the JVM.
 
 The Friday rename now gets two outcomes. An intentional change produces an
 artifact diff for review. An accidental change turns CI red before Monday
-morning, so the dashboard never gets the chance to print £0.00.
+morning, whether the value is heading to a browser over HTTP or to a consumer
+through Kafka, NATS, or SQS. The dashboard never gets the chance to print
+£0.00.
