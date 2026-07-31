@@ -30,6 +30,11 @@ version, summary, producers, and consumers. The aggregator validates that
 metadata, rejects duplicate event IDs, and writes EventCatalog pages with the
 JSON Schema attached.
 
+The TypeScript producer attaches that metadata with the published
+`eventcatalog-generator-zod/define-event` helper. The catalog still reads the
+committed JSON Schema, so producers in other languages only need to emit the
+same artifact shape.
+
 The same move works for authored documentation. A small indexer globs every
 `docs/` directory and reads agreed frontmatter such as title, repository, and
 owner.

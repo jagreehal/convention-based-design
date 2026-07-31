@@ -23,7 +23,11 @@ next one answers. Start at
 ## Commit the contract
 
 The producer already uses Zod schemas to reject invalid requests and events.
-This example generates standard artifacts from those same schemas:
+Its event declarations use the published
+[`eventcatalog-generator-zod`](https://www.npmjs.com/package/eventcatalog-generator-zod)
+package to attach identity, version, ownership, producer, and consumer metadata
+without changing Zod's inferred types or runtime validation. This example
+generates standard artifacts from those same schemas:
 
 - OpenAPI describes request and response traffic.
 - JSON Schema describes events.
@@ -74,7 +78,7 @@ Each top-level directory stands in for a separate company repository:
 | `payments-service/` | TypeScript producer. Zod is the runtime source of truth; `contracts/` is generated and committed. |
 | `dashboard/` | TypeScript frontend. Orval generates its typed microservice client from `openapi.json`. |
 | `reporter/` | Python event consumer. `jsonschema` validates each record against `contracts/events/*.json`. |
-| `catalog/` | Company aggregator. EventCatalog reads committed artifacts from every configured repository. |
+| `catalog/` | Company aggregator. EventCatalog 4 reads committed artifacts from every configured repository. |
 
 `docs-index.mjs` demonstrates the documentation half of the convention by
 indexing frontmatter from each `docs/` directory.
@@ -193,8 +197,9 @@ Kafka, NATS, or SQS changes delivery configuration, not the event schema or
 the reporter's payload validation.
 
 The cleanup trap restores the producer source and stops the server even when
-the demonstration exits early. CI runs the same script, then rejects modified,
-deleted, or untracked generated files.
+the demonstration exits early. CI runs the same script, builds the static
+EventCatalog site, then rejects modified, deleted, or untracked generated
+files.
 
 After an intentional schema change, regenerate and commit the artifacts:
 
@@ -217,6 +222,17 @@ npm run check
 | Python receives an invalid event | JSON Schema validation |
 | Two repositories claim the same event ID | Catalog generation |
 | Generated output was not committed | Final CI working-tree check |
+
+## Related
+
+This repo prevents drift at the producer. Three siblings cover what happens when
+it gets past you, and where the resulting tests belong.
+
+| Repo | The argument it owns |
+| --- | --- |
+| [fixing-unknown-unknowns-data](../fixing-unknown-unknowns-data) | The other half of this story. When the contract froze years ago and five client generations already diverged, you measure first: validate at the boundary in observe mode, read the mismatch off spans, then enforce by slice. Read this repo to stop the Friday rename; read that one for the renames that already happened. |
+| [test-the-journey-not-the-dom](../test-the-journey-not-the-dom) | Testing orchestration across services below the browser. Its typed journeys reject a 200 OK carrying the wrong shape — the consumer-side backstop for exactly the drift this repo prevents at the source. |
+| [testing-levels](../../js/testing-levels) | Which test level owns which behaviour inside one service, and why a committed artifact beats the hand-written fixture that a mocked integration test would otherwise trust forever. |
 
 ## When a monorepo still wins
 

@@ -13,6 +13,9 @@ export default {
   outDir: 'dist',
   base: '/',
   trailingSlash: false,
+  auth: {
+    enabled: false,
+  },
   generators: [
     [
       './generators/contracts.mjs',

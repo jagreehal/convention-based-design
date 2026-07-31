@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createPaymentRequestSchema, paymentSchema, problemSchema } from './api.ts';
-import { getEventMetadata } from './define-event.ts';
+import { getEventMetadata } from 'eventcatalog-generator-zod/define-event';
 import { eventSchemaList } from './events.ts';
 
 const json = (schema: z.ZodType) => z.toJSONSchema(schema, { target: 'openapi-3.0' });

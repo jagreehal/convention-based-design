@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { defineEvent } from './define-event.ts';
+import { defineEvent } from 'eventcatalog-generator-zod/define-event';
 import { paymentSchema } from './api.ts';
 
 export const paymentCompletedEventSchema = defineEvent(

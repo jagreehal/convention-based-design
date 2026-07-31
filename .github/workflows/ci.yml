@@ -17,5 +17,6 @@ jobs:
       - run: npm ci --prefix dashboard
       - run: npm ci --prefix catalog
       - run: ./demo.sh
+      - run: npm run build --prefix catalog
       # Catch modified, deleted, and newly generated untracked files.
       - run: test -z "$(git status --porcelain --untracked-files=all)"
