@@ -1,19 +1,20 @@
 ---
-title: "Contract-first design, part 5: Turn repository conventions into a catalog"
-series: contract-first-design
+title: "Convention-based artifact publishing, part 5: Turn repository conventions into a catalog"
+series: convention-based-design
 part: 5
 ---
 
 # Turn repository conventions into a catalog
 
-A perfect `payment.completed` schema still fails discovery when only three
-people know which repository contains it.
+A new engineer asks which service emits `payment.completed`. Three people know.
+Two of them are on holiday and the third answers in Slack, where the answer
+sinks out of scroll within a day and gets asked again next month.
 
-The contract needs an address.
+A schema without a discoverable address goes unused.
 
-## Make location part of the convention
+## Make the location part of the agreement
 
-Every publishing repository in this example uses:
+Each publishing repository in this example uses the same two roots:
 
 ```text
 contracts/openapi.json
@@ -21,46 +22,51 @@ contracts/events/*.json
 docs/*.md
 ```
 
-An organization-wide job needs only a list of repositories. It clones each one,
-reads those paths, and builds a catalog. Individual producers do not import or
-call the catalog.
+A company-wide job finds the enrolled repositories, clones each one, reads those
+paths, and builds a catalog. In
+[`cbd-catalog`](https://github.com/jagreehal/cbd-catalog), enrolment is a GitHub
+topic: every repository tagged `cbd-publisher` appears in
+[the catalog](https://jagreehal.github.io/cbd-catalog/) on its next build.
+Producers neither import nor call the catalog. To add an eleventh repository,
+you add one topic. You register no events, and the catalog code does not name
+the repository.
 
-The event artifacts carry an `x-eventcatalog` extension containing identity,
-version, summary, producers, and consumers. The aggregator validates that
-metadata, rejects duplicate event IDs, and writes EventCatalog pages with the
-JSON Schema attached.
+Event artifacts carry an `x-eventcatalog` extension holding identity, version,
+summary, producers, and consumers. The aggregator validates that metadata,
+rejects two repositories claiming the same event ID, and writes catalog pages
+with the JSON Schema attached.
 
 The TypeScript producer attaches that metadata with the published
-`eventcatalog-generator-zod/define-event` helper. The catalog still reads the
-committed JSON Schema, so producers in other languages only need to emit the
+`eventcatalog-generator-zod/define-event` helper. The catalog reads the
+committed JSON either way, so a Go or Python producer joins by emitting the
 same artifact shape.
 
-The same move works for authored documentation. A small indexer globs every
-`docs/` directory and reads agreed frontmatter such as title, repository, and
-owner.
-
-## Keep the artifact language-neutral
-
-The catalog reads JSON artifacts rather than scanning Zod source. A Go
-producer, Python producer, and TypeScript producer appear identically when they
-commit the same format.
-
-This direction matters:
+## The dependency arrow points one way
 
 ```text
 producer repository -> committed artifact <- catalog
 ```
 
-The producer owns its contract. The catalog observes it. A catalog outage
-cannot prevent the producer from building or a consumer from validating a
-message.
+The producer owns its contract. The catalog reads the published artifact.
+Committed inputs keep producer builds off the catalog's critical path. Teams can
+serve those inputs from a registry, release asset, or artifact store as long as
+consumers can pin and cache them.
 
-Predictable paths turn repository autonomy into discoverability. Teams keep
-independent builds and releases while the organization gains one searchable
-view.
+Take the catalog offline and the producer still builds. The dashboard can
+generate its client from its pinned artifact, and the reporter can validate
+records. Readers lose discovery until the catalog returns.
 
-Discovery solves “Where is the contract?” It does not solve the last hard
-question: what happens when a producer intentionally changes it?
+Reading committed JSON rather than scanning Zod source is what makes that
+possible. A Go producer, a Python producer, and a TypeScript producer look
+identical to the aggregator, because it reads their artifacts instead of their
+source.
+
+Predictable paths turn repository autonomy into something searchable. Every team
+keeps its own build and its own release schedule, and the company gets one view
+across all of them.
+
+The catalog answers where the contract is. Part 6 covers an intentional field
+rename and the release work that follows.
 
 [← Part 4](04-one-payload-any-broker.md) ·
-[Part 6: Make contract changes fail safely →](06-make-contract-changes-fail-safely.md)
+[Part 6: Make contract changes fail before release →](06-make-contract-changes-fail-safely.md)

@@ -1,1 +1,0 @@
-{"type":"payment.failed","paymentId":"pay_fixed","reason":"insufficient funds","failedAt":"2026-01-01T00:00:00.000Z"}

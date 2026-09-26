@@ -1,18 +1,18 @@
 ---
-title: "Contract-first design, part 4: One payload, any broker"
-series: contract-first-design
+title: "Convention-based artifact publishing, part 4: One payload across brokers"
+series: convention-based-design
 part: 4
 ---
 
-# One payload, any broker
+# One payload across brokers
 
-The Python reporter from part 3 reads NDJSON. Replace that file with Kafka and
-the `payment.completed` payload does not gain a partition key. Replace Kafka
-with SQS and the payment does not gain a redrive policy.
+Swap the NDJSON file for Kafka and `payment.completed` does not grow a
+partition key. Swap Kafka for SQS and it does not grow a redrive policy.
 
-Those facts belong to different contracts.
+Those things are real, and they belong to a different agreement than the one
+describing what a payment is.
 
-## Payload and transport
+## Payload and delivery contracts
 
 JSON Schema owns the payload:
 
@@ -24,7 +24,7 @@ payment.currency
 settledAt
 ```
 
-The transport owns delivery:
+The broker owns delivery:
 
 | Transport | Delivery contract |
 |---|---|
@@ -34,7 +34,7 @@ The transport owns delivery:
 | RabbitMQ | Exchange, routing key, binding, acknowledgement |
 | EventBridge | Bus, source, detail type, retries, archive |
 
-A small adapter handles the seam:
+A small adapter sits on the seam:
 
 ```text
 broker envelope
@@ -44,18 +44,23 @@ broker envelope
   -> consumer logic
 ```
 
-An SNS notification delivered through SQS may wrap the event body. EventBridge
-places it under `detail`. A Kafka consumer receives bytes plus headers and a
-key. Each adapter removes that transport-specific structure before the same
-payload validator runs.
+An SNS notification arriving through SQS wraps the body in another JSON string.
+EventBridge buries it under `detail`. A Kafka consumer gets bytes plus headers
+plus a key. Each adapter strips its own broker's packaging and hands the same
+payload to the same validator.
 
-## Where AsyncAPI fits
+Migrating from SQS to Kafka rewrites one adapter per consumer and changes
+operational behaviour such as ordering, retries, and deduplication. The payload
+schema and its validation code can remain unchanged when the business event
+keeps the same shape.
 
-JSON Schema answers, “What is inside this event?” AsyncAPI can answer, “Where is
-it published, which protocol carries it, and what operation does a consumer
-perform?”
+## AsyncAPI covers transport topology
 
-Teams can commit both:
+JSON Schema answers what is inside the event. AsyncAPI answers where it gets
+published, which protocol carries it, and what operation a consumer performs.
+
+Commit both when the transport topology deserves the same review and discovery
+as the payload:
 
 ```text
 contracts/
@@ -63,17 +68,12 @@ contracts/
   events/payment.completed.json
 ```
 
-The event schema stays useful even when the broker changes. The AsyncAPI
-artifact records the transport topology when that information needs the same
-review and discovery workflow.
+The demo stays on NDJSON because it starts in one command and needs no broker
+running. The bytes it moves are the bytes a Kafka adapter would carry.
 
-The local demo uses NDJSON because it starts in one command and needs no broker.
-Its contract is still the payload a Kafka, NATS, SQS, RabbitMQ, or EventBridge
-adapter would carry.
-
-One producer and one consumer can now agree across languages and transports.
-The next problem appears when a company has hundreds of repositories: how does
-anyone find the contracts?
+One producer and one consumer now agree across two languages while transport
+adapters handle broker semantics. The next problem appears as the repository
+count grows: a new consumer cannot find a contract it does not know exists.
 
 [← Part 3](03-one-event-two-languages.md) ·
 [Part 5: Turn repository conventions into a catalog →](05-turn-repositories-into-a-catalog.md)

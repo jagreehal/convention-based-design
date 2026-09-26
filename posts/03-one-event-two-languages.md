@@ -1,58 +1,60 @@
 ---
-title: "Contract-first design, part 3: One event, two languages"
-series: contract-first-design
+title: "Convention-based artifact publishing, part 3: One event, two languages"
+series: convention-based-design
 part: 3
 ---
 
 # One event, two languages
 
-The frontend could generate TypeScript from OpenAPI. The reporter cannot import
-that client or the producer's Zod schemas because it runs in Python.
+The reporter that sends finance its daily totals is fifty lines of Python. It
+cannot import the generated client from part 2, and it cannot run a Zod schema.
+The data platform team does not have Node installed and has no intention of
+installing it.
 
-JSON Schema gives both runtimes a common interface.
+They still need to know what a `payment.completed` event looks like.
 
-## Validate before and after delivery
+## Validate at both ends, for different reasons
 
-The TypeScript producer defines `payment.completed` with Zod. Before it writes
-an event, it parses the value through that schema. The same schema generates:
+The TypeScript producer defines the event with Zod and parses each value
+through that schema before writing it. The same schema generates a file:
 
 ```text
 contracts/events/payment.completed.json
 ```
 
-The Python reporter loads that committed JSON file with `jsonschema`. For each
-record it selects the schema by event type and validates the payload before
-reading `payment.amount`.
+The reporter loads that committed JSON with `jsonschema`, picks the validator
+by event type, and checks the record before touching `payment.amount`.
 
-Validation happens at both ends for different reasons:
+Two checks, and they catch different things. The producer's check stops a known
+bad event leaving the module. The reporter's check catches a stale deployment
+still emitting last month's shape, a corrupted record, and a producer that
+ignored the contract.
 
-- Producer validation prevents known bad events from leaving the module.
-- Consumer validation detects stale deployments, corrupt records, and
-  producers that did not follow the contract.
+Nothing sits between them at runtime. No shared package, no client library, no
+version to coordinate.
 
-No shared runtime package sits between them.
+## Inspect the bytes that cross the boundary
 
-## Pin the bytes as well as the shape
+A schema describes the values it permits. It says nothing about what lands on
+the wire, and consumers parsing a stream care about that too.
 
-A schema describes allowed values. Consumers can also care about the concrete
-serialization placed on the wire.
+The producer and its tests share one NDJSON serializer. Approved files expose
+changes to encoding, record delimiters, and the serialized example in the pull
+request. JSON object member order has no semantic meaning, so consumers must not
+depend on it even though the byte snapshot makes an order change visible.
 
-The producer and its tests share one NDJSON serializer. Approved files pin the
-compact JSON, field order, and newline delimiter. A serialization change
-therefore appears as a normal code review diff.
-
-The repository's live proof sends this record from Node to Python:
+Here is the record that crosses from Node to Python when you run the demo:
 
 ```json
 {"type":"payment.completed","payment":{"id":"...","amount":42,"currency":"GBP","status":"completed","createdAt":"..."},"settledAt":"..."}
 ```
 
-The reporter prints `OK payment.completed 42 GBP` only after JSON Schema accepts
-it.
+JSON Schema accepts the record before the reporter prints
+`OK payment.completed 42 GBP`.
 
-We now have a language-neutral event contract, but the demo delivers it through
-a file. Production systems use Kafka, NATS, SQS, RabbitMQ, and other brokers.
-Does choosing one of them change the payload agreement?
+That is a language-neutral event contract, delivered by writing to a file on
+disk. Real systems use Kafka, NATS, or SQS, and each adds its own
+envelope, its own keys, and its own delivery semantics.
 
 [← Part 2](02-a-typed-frontend-without-backend-source.md) ·
-[Part 4: One payload, any broker →](04-one-payload-any-broker.md)
+[Part 4: One payload across brokers →](04-one-payload-any-broker.md)

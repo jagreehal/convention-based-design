@@ -1,40 +1,42 @@
 ---
-title: "Contract-first design, part 1: The £0.00 dashboard"
-series: contract-first-design
+title: "Convention-based artifact publishing, part 1: The £0.00 dashboard"
+series: convention-based-design
 part: 1
 ---
 
 # The £0.00 dashboard
 
-At 09:17 on Monday, every payment in the dashboard read £0.00.
+At 09:17 on Monday, each payment in the dashboard read £0.00.
 
-The payments microservice still held the right totals. On Friday its producer
-had renamed `amount` to `value`. The dashboard deployed from another repository
-and kept reading `amount`. Both builds passed because each repository remained
-internally consistent.
+Support noticed first, because customers had begun calling about money the bank
+had charged. The payments microservice held the right totals the whole
+time. On Friday someone renamed `amount` to `value`, shipped it, and went home.
+The dashboard deploys from a different repository and carried on reading
+`amount`.
 
-The disagreement lived between them.
+Both builds were green. Each repository was correct on its own. Put them
+together and one was reading a field the other had stopped sending.
 
-## Three fixes that move the problem
+## Popular fixes move the boundary
 
-Copying the backend TypeScript type into the frontend gives the mismatch a new
-place to hide. The copy can still go stale.
+Copy the backend TypeScript type into the frontend and you now maintain two
+definitions of one shape. A shared package removes that copy, and consumers can
+pin a version while they release on their own schedule. The package still ties
+consumers to its language and lifecycle, and the Python reporter cannot use a
+TypeScript type at runtime.
 
-Publishing a shared package removes the copy, but now both repositories must
-coordinate package releases. A Python consumer cannot use the TypeScript type
-at runtime.
+Merge the source into a monorepo and one commit can update both call sites. The
+producer and dashboard still deploy at different times, so a breaking API change
+needs an overlap. The move also changes ownership, permissions, and build
+tooling across the organisation.
 
-A monorepo can make the change atomic. It also changes repository ownership,
-build tooling, permissions, and release coordination to solve one field
-rename.
-
-The actual requirement is smaller: every producer and consumer needs the same
-description of the data that crosses between them.
+Both teams need the same description of the data crossing between them, in a
+form they can read without running either service.
 
 ## Put the agreement in a file
 
-The payments microservice already uses Zod to validate live values. It can
-generate two standard artifacts from those schemas:
+The payments microservice validates live values with Zod. Those same
+schemas generate two standard artifacts:
 
 ```text
 contracts/
@@ -47,14 +49,20 @@ contracts/
 OpenAPI describes HTTP requests and responses. JSON Schema describes event
 payloads. The producer commits both beside the code that generated them.
 
-That committed artifact is reviewable, versioned, and usable from another
-language. A consumer fetches it without importing the producer's source or
-joining its build.
+You can review a committed artifact, version it, and read it from any language.
+The dashboard fetches one file, at a tag, without importing the payments source.
 
-The £0.00 bug now has somewhere concrete to fail: CI compares the live schema
-with the committed artifact and rejects the rename before release.
+An uncommitted `amount` rename now has somewhere concrete to fail. Producer CI
+regenerates the artifacts, compares them with the committed files, and rejects
+the mismatch. After an intentional rename, the dashboard regenerates its client
+and fails on each call site that still reads `amount`. A safe release then needs
+version overlap between producer and consumer.
 
-The next question belongs to the dashboard. A contract file can describe an
-HTTP call, but how does it become a frontend experience developers can use?
+OpenAPI gives the agreement a neutral format. The repository convention gives
+each consumer a predictable place to find it. Part 7 applies the same ownership
+rule to documentation.
+
+The dashboard still holds a JSON file. Hand-writing `fetch()` calls against 200
+lines of it would recreate the mismatch in client code.
 
 [Part 2: A typed frontend without backend source →](02-a-typed-frontend-without-backend-source.md)
