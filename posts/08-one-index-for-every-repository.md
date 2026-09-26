@@ -150,7 +150,11 @@ Astro emits HTML around the Markdown from git. Each page also has a raw route:
 /cbd-docs-site/cbd-payments-service/runbook.md     raw markdown, for machine readers
 ```
 
-Both come from the same collection. The `.md` route is fifteen lines.
+Both come from the same collection. Each HTML page points at its twin with
+`<link rel="alternate" type="text/markdown">`, so an agent that fetches the page
+can find the Markdown. The twin's frontmatter adds the owner's last git change,
+the source file on GitHub, and the canonical URL, which gives an assistant what
+it needs to cite the runbook it answered from.
 
 An `llms.txt` at the root lists documents from the enrolled repositories with
 their owners. The build generates it from the same collection as the site.

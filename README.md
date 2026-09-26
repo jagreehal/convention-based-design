@@ -56,6 +56,11 @@ convention to OpenAPI and JSON Schema.
 | [cbd-docs-site](https://github.com/jagreehal/cbd-docs-site) | Aggregator: [docs index](https://jagreehal.github.io/cbd-docs-site/), `llms.txt`, `.md` routes, [manifest](https://jagreehal.github.io/cbd-docs-site/contracts/docs-manifest.json) | every enrolled repo's `docs/` |
 | [cbd-catalog](https://github.com/jagreehal/cbd-catalog) | Aggregator: [EventCatalog](https://jagreehal.github.io/cbd-catalog/) | every enrolled repo's `contracts/` and `docs/` |
 
+[cbd-docs-mcp](https://github.com/jagreehal/cbd-docs-mcp) serves the docs index
+to Claude as a connector at `https://cbd-docs-mcp.vercel.app/api/mcp`. It reads
+the manifest and Markdown twins that cbd-docs-site publishes, so it is one more
+consumer and needs nothing from the publishers.
+
 Consumers fetch committed artifacts over HTTPS at a git tag, for example
 `raw.githubusercontent.com/jagreehal/cbd-payments-service/v1.0.0/contracts/openapi.json`.
 They import no source from another repository and share no package with it. To
