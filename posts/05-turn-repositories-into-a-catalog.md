@@ -32,9 +32,9 @@ you add one topic. You register no events, and the catalog code does not name
 the repository.
 
 Event artifacts carry an `x-eventcatalog` extension holding identity, version,
-summary, producers, and consumers. The aggregator validates that metadata,
-rejects two repositories claiming the same event ID, and writes catalog pages
-with the JSON Schema attached.
+summary, producers, and consumers. The aggregator reads that metadata and
+writes catalog pages with the JSON Schema attached. Two repositories that claim
+the same event ID each keep their own page, under the repository's name.
 
 The TypeScript producer attaches that metadata with the published
 `eventcatalog-generator-zod/define-event` helper. The catalog reads the

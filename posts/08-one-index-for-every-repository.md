@@ -6,8 +6,13 @@ part: 8
 
 # One index across repositories
 
+> cbd-docs-site has since been folded into
+> [cbd-catalog](https://github.com/jagreehal/cbd-catalog), which builds the same
+> index, twins and manifest with autocatalog. The code below is how the
+> original site did it; the links point at the live one.
+
 Turning twelve Markdown files scattered across four repositories into a
-[browsable site](https://jagreehal.github.io/cbd-docs-site/) takes thirty lines
+[browsable site](https://jagreehal.github.io/cbd-catalog/) takes thirty lines
 of configuration and one shell loop. Most of it specifies where to look.
 
 ## One collection spans the enrolled repositories
@@ -57,7 +62,7 @@ schema. The aggregator reads the artifact that publishing repositories use.
 ## The question a repository cannot answer alone
 
 Each run publishes
-[`contracts/docs-manifest.json`](https://jagreehal.github.io/cbd-docs-site/contracts/docs-manifest.json)
+[`contracts/docs-manifest.json`](https://jagreehal.github.io/cbd-catalog/contracts/docs-manifest.json)
 to GitHub Pages:
 
 ```json
@@ -146,8 +151,8 @@ work. It does not remove platform operations.
 Astro emits HTML around the Markdown from git. Each page also has a raw route:
 
 ```text
-/cbd-docs-site/cbd-payments-service/runbook        rendered, for people
-/cbd-docs-site/cbd-payments-service/runbook.md     raw markdown, for machine readers
+/cbd-catalog/cbd-payments-service/runbook        rendered, for people
+/cbd-catalog/cbd-payments-service/runbook.md     raw markdown, for machine readers
 ```
 
 Both come from the same collection. Each HTML page points at its twin with

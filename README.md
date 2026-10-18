@@ -29,8 +29,8 @@ Four rules define the pattern:
 4. Central indexes read the standard paths without becoming build or runtime
    dependencies of the publishers.
 
-[`cbd-docs-site`](https://github.com/jagreehal/cbd-docs-site) turns the
-`docs/` roots into [one reading surface](https://jagreehal.github.io/cbd-docs-site/)
+[`cbd-catalog`](https://github.com/jagreehal/cbd-catalog) turns the
+`docs/` roots into [one reading surface](https://jagreehal.github.io/cbd-catalog/)
 for operational and technical documentation. Teams keep authorship in git.
 Readers get a company index.
 
@@ -53,12 +53,12 @@ convention to OpenAPI and JSON Schema.
 | [cbd-payments-service](https://github.com/jagreehal/cbd-payments-service) | TypeScript producer. Zod generates `contracts/openapi.json` and `contracts/events/*.json` | handbook's docs check |
 | [cbd-dashboard](https://github.com/jagreehal/cbd-dashboard) | TypeScript frontend. Orval generates its client from the payments OpenAPI | `openapi.json` at a pinned tag |
 | [cbd-reporter](https://github.com/jagreehal/cbd-reporter) | Python consumer. `jsonschema` validates events; its own docs check in Python | event schemas and frontmatter schema at pinned tags |
-| [cbd-docs-site](https://github.com/jagreehal/cbd-docs-site) | Aggregator: [docs index](https://jagreehal.github.io/cbd-docs-site/), `llms.txt`, `.md` routes, [manifest](https://jagreehal.github.io/cbd-docs-site/contracts/docs-manifest.json) | every enrolled repo's `docs/` |
-| [cbd-catalog](https://github.com/jagreehal/cbd-catalog) | Aggregator: [EventCatalog](https://jagreehal.github.io/cbd-catalog/) | every enrolled repo's `contracts/` and `docs/` |
+| [cbd-docs-site](https://github.com/jagreehal/cbd-docs-site) | Retired: redirects to cbd-catalog | nothing |
+| [cbd-catalog](https://github.com/jagreehal/cbd-catalog) | Aggregator: [one site](https://jagreehal.github.io/cbd-catalog/) built by autocatalog. Docs index, events, `llms.txt`, `.md` routes, [manifest](https://jagreehal.github.io/cbd-catalog/contracts/docs-manifest.json), [`catalog.json`](https://jagreehal.github.io/cbd-catalog/catalog.json) | every enrolled repo's `contracts/` and `docs/` |
 
 [cbd-docs-mcp](https://github.com/jagreehal/cbd-docs-mcp) serves the docs index
 to Claude as a connector at `https://cbd-docs-mcp.vercel.app/api/mcp`. It reads
-the manifest and Markdown twins that cbd-docs-site publishes, so it is one more
+the manifest and Markdown twins that cbd-catalog publishes, so it is one more
 consumer and needs nothing from the publishers.
 
 Consumers fetch committed artifacts over HTTPS at a git tag, for example
@@ -68,9 +68,9 @@ adopt a new contract, a consumer opens a one-line pull request that bumps the
 tag.
 
 To enrol a repository, add the `cbd-publisher` GitHub topic. On each build the
-aggregators list repositories with that topic, clone them, and read the
+aggregator lists repositories with that topic, clones them, and reads the
 standard paths. Publishers edit no central file and build without the
-aggregators.
+aggregator.
 
 ## Watch it fail in the right place
 
@@ -85,7 +85,7 @@ repository that makes it and fails in the repository it would break.
 | [cbd-payments-service#2](https://github.com/jagreehal/cbd-payments-service/pull/2) delete `docs/contract-reach.md` | red | `✗ cbd-payments-service/contract-reach no longer exists but is linked from cbd-dashboard/reading-the-contract, cbd-reporter/validating-events-in-python` |
 
 The payments repository has no record of who links to its docs. Its check
-reads the manifest that cbd-docs-site publishes, and that manifest names both
+reads the manifest that cbd-catalog publishes, and that manifest names both
 inbound links.
 
 ## Read the argument one proof at a time
@@ -116,13 +116,13 @@ related: [cbd-payments-service/runbook, cbd-reporter/daily-settlement-report]
 A relative link into another repository is a dead link on GitHub and in any
 clone. The checker rejects it.
 
-`cbd-docs-site` aggregates each enrolled repository's `docs/**/*.md` into
+`cbd-catalog` aggregates each enrolled repository's `docs/**/*.md` into
 rendered pages, raw markdown at `<url>.md`, `llms.txt`, and
 `contracts/docs-manifest.json` so each repository can see who links to it. The
 02:40 path is concrete here:
-[incident policy](https://jagreehal.github.io/cbd-docs-site/cbd-handbook/incident-communications/)
+[incident policy](https://jagreehal.github.io/cbd-catalog/cbd-handbook/incident-communications/)
 in `cbd-handbook` points at the
-[payments runbook](https://jagreehal.github.io/cbd-docs-site/cbd-payments-service/runbook/),
+[payments runbook](https://jagreehal.github.io/cbd-catalog/cbd-payments-service/runbook/),
 and the site turns that declaration into a working link with a git date.
 
 ## Machine artifacts under `contracts/`
@@ -177,16 +177,16 @@ rollouts. The convention gives those decisions one inspectable place to land.
 - **Source drift and known broken links fail in CI.** The checks catch stale
   generated artifacts and links recorded in the latest manifest before those
   changes merge.
-- **Discovery needs no per-document registration.** The documentation site and
-  contract catalog generate pages from enrolled repositories and their standard
-  paths.
+- **Discovery needs no per-document registration.** The catalog site
+  generates its docs and contract pages from enrolled repositories and their
+  standard paths.
 
 ## Follow one schema through the system
 
 ```text
 enrolled repos' docs/*.md
        |
-       +--> cbd-docs-site collection
+       +--> cbd-catalog
                      |
                      +--> rendered pages
                      +--> raw markdown routes (<url>.md)
@@ -206,16 +206,16 @@ cbd-payments-service
                                                    |
                                                    +--> Python reporter validation
                                       |
-                                      +--> EventCatalog pages
+                                      +--> cbd-catalog event pages
 ```
 
 The consumers cross the artifact seam. They read artifacts at a tag rather than
 the producer's `src/`.
 
 Event identity, version, summary, producers, and consumers travel inside each
-JSON Schema through an `x-eventcatalog` extension. The catalog validates that
-metadata, rejects duplicate event IDs, and rebuilds its generated domain from
-scratch so retired events disappear.
+JSON Schema through an `x-eventcatalog` extension. The catalog reads that
+metadata and rebuilds from fresh clones, so retired events disappear. Two
+repositories that claim the same event ID each keep their own page.
 
 The event tests use the same NDJSON serializer as the running producer. Their
 approved files expose encoding, object order, and record-delimiter changes in a
@@ -299,7 +299,6 @@ Each README lists its commands. The Python reporter needs
 | Frontend sends an invalid request at runtime | Microservice Zod validation |
 | Producer emits an invalid event | Zod before append |
 | Python receives an invalid event | cbd-reporter: JSON Schema validation |
-| Two repositories claim the same event ID | cbd-catalog generation |
 | Doc frontmatter missing a required field | Publishing repo's docs check, in Node or Python |
 | Doc renamed or deleted while the latest manifest records an inbound link | Publishing repo's docs check against the published manifest |
 | A doc links into another repo by relative path | Publishing repo's docs check |
